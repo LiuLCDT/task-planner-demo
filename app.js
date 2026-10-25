@@ -50,9 +50,8 @@ $('generate').addEventListener('click',()=>generate());$('retry').addEventListen
 document.querySelectorAll('[data-scenario]').forEach(button=>button.addEventListener('click',()=>{if(state.busy)return;const scenario=button.dataset.scenario;reset(scenario==='zero'?0:scenario==='last'?1:3);button.classList.add('active');
  
  if(scenario==='fail'){state.failNext=true;log('演示设置 · 下一次模拟调用明确失败');}
- if(scenario==='concurrent'){state.externalLocked=true;log('演示设置 · 同账号另一页面持续生成中；本页点击生成体验拦截');}
- else if(scenario!=='zero')generate();
- document.querySelector('.generate-row').scrollIntoView({block:'center',behavior:'instant'});
+ if(scenario==='concurrent'){state.externalLocked=true;log('演示设置 · 同账号另一页面持续生成中；本页自动尝试生成并展示拦截');}
+ if(scenario!=='zero')generate();
 }));
 function positionTip(tipId,anchorId){
  const tip=$(tipId),anchor=$(anchorId).getBoundingClientRect();
