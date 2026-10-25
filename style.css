@@ -29,3 +29,18 @@
 .result-pane .feedback{margin:0 0 24px;padding:16px 18px}.result-pane .feedback[hidden]{margin:0}
 
 .task-check-placeholder{width:16px;height:16px;margin:0;flex-shrink:0;accent-color:var(--blue)}.task-duration-placeholder{display:flex;align-items:center;gap:6px;flex-shrink:0;font-size:11px;color:var(--muted)}.task-duration-placeholder input{width:52px;height:30px;text-align:center;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--muted);font-size:12px;appearance:textfield}.task-duration-placeholder input::-webkit-inner-spin-button{appearance:none}.theme-placeholder{display:flex;align-items:center;justify-content:center;min-width:24px}.task-duration-placeholder input:focus{outline:none}@media(max-width:700px){.task-item{gap:8px}.task-duration-placeholder{gap:4px}.task-duration-placeholder input{width:40px}.task-name{font-size:13px}.account-placeholder{gap:8px}}
+
+/* Feedback hierarchy: transient success, persistent blocking, anchored help. */
+.generate-row .tooltip{position:fixed;top:0;bottom:auto;left:0;right:auto;width:264px;max-width:calc(100vw - 24px);transform:none;background:#fff;color:#344054!important;border:1px solid #dce2ea;border-radius:10px;padding:12px 15px;font-size:13px!important;font-weight:400;line-height:1.65;box-shadow:0 6px 20px #25354a14;z-index:80;}
+.generate-row .tooltip:before{display:block;content:"";position:absolute;left:var(--arrow-x,50%);right:auto;top:auto;bottom:-5px;width:9px;height:9px;background:#fff;border-right:1px solid #dce2ea;border-bottom:1px solid #dce2ea;transform:translateX(-50%) rotate(45deg);}
+.generate-row .tooltip[data-placement="bottom"]:before{top:-5px;bottom:auto;transform:translateX(-50%) rotate(225deg);}
+.generate-row .tooltip:after{content:"";position:absolute;top:auto;bottom:-14px;left:0;right:0;height:15px;}
+.generate-row .tooltip[data-placement="bottom"]:after{top:-14px;bottom:auto;}
+.toast{display:flex;align-items:center;gap:10px;background:#fff;color:#263b32;border:1px solid #dce8e0;border-radius:12px;padding:12px 18px;box-shadow:0 8px 28px #203c2b12;font-size:14px;}
+.toast-icon{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#e8f5ed;color:#238052;font-weight:700;line-height:1;}
+.result-pane .feedback{border-radius:10px;line-height:1.7;}
+.result-pane .feedback.blocked{background:#f4f7fb;border:1px solid #dce5ef;color:#354d69;}
+.result-pane .feedback.blocked p{color:#62748a;}
+.result-pane .feedback.error{background:#fff7f6;border-color:#f0dcd8;}
+.hours-error{margin:-12px 0 18px;text-align:right;}
+#hours[aria-invalid="true"]{border-color:#c16058;}

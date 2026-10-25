@@ -5,10 +5,10 @@ const state = {credits:3,tasks:initialTasks(),busy:false,failNext:false,result:n
 const escapeHTML = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function log(event){state.events.unshift(`${new Date().toLocaleTimeString('zh-CN',{hour12:false})}  ${event}`);state.events=state.events.slice(0,30);renderMetrics();}
 function renderMetrics(){for(const key of ['calls','successes','failures','blocks'])$(key).textContent=state[key];$('events').innerHTML=state.events.length?state.events.map(e=>`<li>${escapeHTML(e)}</li>`).join(''):'<li>等待操作</li>';}
-function notify(title,text,kind='info',retry=false){$('feedback').hidden=false;$('feedback').className=`feedback ${kind}`;$('feedbackTitle').textContent=title;$('feedbackText').textContent=text;$('retry').hidden=!retry;if(kind==='error')$('empty').hidden=true;}
+function notify(title,text,kind='info',retry=false){$('feedback').hidden=false;$('feedback').className=`feedback ${kind}`;$('feedbackTitle').textContent=title;$('feedbackText').textContent=text;$('retry').hidden=!retry;$('empty').hidden=true;}
 function renderTasks(){ $('taskCount').textContent=`${state.tasks.length} 项`;$('taskList').innerHTML=state.tasks.length?state.tasks.map((t,i)=>`<li class="task-item"><input class="task-check-placeholder" type="checkbox" disabled aria-label="标记${escapeHTML(t)}完成"><span class="task-name">${escapeHTML(t)}</span><span class="task-duration-placeholder"><input type="number" value="1" min="0.5" step="0.5" readonly aria-label="${escapeHTML(t)}预计时长"><span>小时</span></span><button class="delete" data-delete="${i}" aria-label="删除${escapeHTML(t)}" ${state.busy?'disabled':''}>×</button></li>`).join(''):'<li class="no-tasks">先添加一项待办</li>'; }
 let toastTimer;
-function showToast(text){clearTimeout(toastTimer);$('toast').textContent=text;$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,3000);}
+function showToast(text){clearTimeout(toastTimer);$('toastText').textContent=text;$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,3000);}
 function render(){
  $('credits').textContent=state.credits;document.querySelector('.quota').classList.toggle('exhausted',state.credits===0);
  $('generate').disabled=state.busy||state.credits===0||state.tasks.length===0;
@@ -29,11 +29,13 @@ function renderResult(){if(!state.result)return;const r=state.result;const minut
  $('result').innerHTML=`<p class="result-summary">${r.tasks.length} 项待办 · 共 ${r.hours} 小时</p>`+r.tasks.map((task,i)=>`<article class="plan-card"><div class="plan-title">${escapeHTML(task)}<span>中优先级</span></div><ul class="steps">${['准备','执行','复盘'].map((step,j)=>{const duration=base+(stepIndex++<remainder?1:0);return `<li><input type="checkbox" id="step-${i}-${j}"><label for="step-${i}-${j}">${step}：${escapeHTML(task)}</label><span>${duration} 分钟</span></li>`;}).join('')}</ul></article>`).join('');
 }
 async function generate(source='当前页'){
- if(state.externalLocked){state.blocks++;log(`${source} · blocked_in_progress · 未调用 / 未扣费`);showToast('此账号正在另一页面生成日程，请稍后再试。本次未扣费。');return 'blocked_in_progress';}
- if(state.busy){state.blocks++;log(`${source} · blocked_in_progress · 未调用 / 未扣费`);showToast('日程正在生成，请稍等。本次未重复扣费。');return 'blocked_in_progress';}
+ if(state.externalLocked){state.blocks++;log(`${source} · blocked_in_progress · 未调用 / 未扣费`);clearTimeout(toastTimer);$('toast').hidden=true;notify('另一页面正在生成日程','本次未扣费，请等待另一页面完成后再试。','blocked');if(state.result)$('resultTag').textContent='上次成功结果';render();$('feedback').scrollIntoView({block:'nearest',behavior:'instant'});return 'blocked_in_progress';}
+ if(state.busy){state.blocks++;log(`${source} · blocked_in_progress · 未调用 / 未扣费`);return 'blocked_in_progress';}
  if(state.credits<1){state.requests.push({source,status:'no_credit'});state.blocks++;log(`${source} · blocked_no_credit · 未调用 / 未扣费`);render();showGenerateTip();return 'blocked_no_credit';}
  const hours=Number($('hours').value);
- if(!state.tasks.length||!Number.isFinite(hours)||hours<1||hours>24||hours*2%1!==0){notify('请检查输入','添加待办，并填写 1–24 小时的可用时间（每次 0.5 小时）。','error');return 'invalid_input';}
+ if(!state.tasks.length){$('inputError').textContent='请先添加待办事项';$('inputError').hidden=false;$('newTask').focus();return 'invalid_input';}
+ if(!Number.isFinite(hours)||hours<1||hours>24||hours*2%1!==0){$('hoursError').hidden=false;$('hours').setAttribute('aria-invalid','true');$('hours').focus();return 'invalid_input';}
+ $('hoursError').hidden=true;$('hours').removeAttribute('aria-invalid');
  const request={source,status:'running'};state.requests.push(request);state.busy=true;const run=++state.run;const snapshot=[...state.tasks];const fail=state.failNext||snapshot.some(t=>t.includes('[fail]'));state.failNext=false;state.calls++;const callId=state.calls;
  $('feedback').hidden=true;$('toast').hidden=true;clearTimeout(toastTimer);log(`${source} · mock.started #${callId} · 额度 ${state.credits}`);render();
  await new Promise(r=>setTimeout(r,1800));if(run!==state.run)return;
@@ -41,7 +43,7 @@ async function generate(source='当前页'){
  else{state.credits--;state.successes++;log(`mock.succeeded #${callId} · 扣除 1 次 · 额度 ${state.credits}`);{$('resultTag').textContent='本次生成';state.result={tasks:snapshot,hours};renderResult();showToast('日程已生成');}}
  request.status=fail?'failed':'succeeded';$('feedback').style.minHeight='';state.busy=false;render();return fail?'failed':'succeeded';
 }
-function reset(credits=3){state.run++;Object.assign(state,{credits,tasks:initialTasks(),busy:false,failNext:false,result:null,calls:0,successes:0,failures:0,blocks:0,events:[],requests:[],externalLocked:false});clearTimeout(toastTimer);$('toast').hidden=true;$('hours').value=8;$('newTask').value='';$('feedback').hidden=true;$('feedback').style.minHeight='';$('inputError').hidden=true;$('result').innerHTML='';document.querySelectorAll('[data-scenario]').forEach(e=>e.classList.remove('active'));render();}
+function reset(credits=3){state.run++;Object.assign(state,{credits,tasks:initialTasks(),busy:false,failNext:false,result:null,calls:0,successes:0,failures:0,blocks:0,events:[],requests:[],externalLocked:false});clearTimeout(toastTimer);$('toast').hidden=true;$('hours').value=8;$('newTask').value='';$('feedback').hidden=true;$('feedback').style.minHeight='';$('inputError').hidden=true;$('hoursError').hidden=true;$('hours').removeAttribute('aria-invalid');hideTip();hideGenerateTip();$('result').innerHTML='';document.querySelectorAll('[data-scenario]').forEach(e=>e.classList.remove('active'));render();}
 $('taskForm').addEventListener('submit',e=>{e.preventDefault();if(state.busy)return;const value=$('newTask').value.trim();if(!value){$('inputError').textContent='请输入待办事项';$('inputError').hidden=false;return;}if(state.tasks.length>=12){$('inputError').textContent='原型最多演示 12 项待办';$('inputError').hidden=false;return;}state.tasks.push(value);$('newTask').value='';$('inputError').hidden=true;render();$('newTask').focus();});
 $('taskList').addEventListener('click',e=>{const target=e.target.closest('[data-delete]');if(!target||state.busy)return;state.tasks.splice(Number(target.dataset.delete),1);render();});
 $('generate').addEventListener('click',()=>generate());$('retry').addEventListener('click',()=>generate());$('resetDemo').addEventListener('click',()=>reset());
@@ -52,8 +54,23 @@ document.querySelectorAll('[data-scenario]').forEach(button=>button.addEventList
  else if(scenario!=='zero')generate();
  document.querySelector('.generate-row').scrollIntoView({block:'center',behavior:'instant'});
 }));
+function positionTip(tipId,anchorId){
+ const tip=$(tipId),anchor=$(anchorId).getBoundingClientRect();
+ const product=document.querySelector('.product-view').getBoundingClientRect();
+ const minX=Math.max(12,product.left+12),maxX=innerWidth-12;
+ tip.style.maxWidth=`${Math.max(160,maxX-minX)}px`;
+ const box=tip.getBoundingClientRect();
+ const left=Math.max(minX,Math.min(anchor.left+anchor.width/2-box.width/2,maxX-box.width));
+ const below=anchor.top<box.height+24;
+ tip.style.left=`${left}px`;tip.style.top=`${below?anchor.bottom+12:anchor.top-box.height-12}px`;
+ tip.style.setProperty('--arrow-x',`${Math.max(14,Math.min(box.width-14,anchor.left+anchor.width/2-left))}px`);
+ tip.dataset.placement=below?'bottom':'top';
+}
+function repositionTips(){if(!$('quotaTip').hidden)positionTip('quotaTip','quotaInfo');if(!$('generateTip').hidden)positionTip('generateTip','generateTipAnchor');}
+window.addEventListener('resize',repositionTips);window.addEventListener('scroll',repositionTips,true);
+$('hours').addEventListener('input',()=>{$('hoursError').hidden=true;$('hours').removeAttribute('aria-invalid');});
 let tipOpen=false,tipTimer;
-function showTip(){clearTimeout(tipTimer);tipOpen=true;$('quotaTip').hidden=false;}
+function showTip(){clearTimeout(tipTimer);tipOpen=true;$('quotaTip').hidden=false;positionTip('quotaTip','quotaInfo');}
 function hideTip(){clearTimeout(tipTimer);tipOpen=false;$('quotaTip').hidden=true;}
 $('tipAnchor').addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')showTip();});
 $('tipAnchor').addEventListener('pointerleave',()=>{tipTimer=setTimeout(()=>{if(document.activeElement!==$('quotaInfo'))hideTip();},120);});
@@ -62,7 +79,7 @@ let touchWasOpen=false;$('quotaInfo').addEventListener('pointerdown',e=>{if(e.po
 $('quotaInfo').addEventListener('click',e=>{if(e.pointerType==='touch'||e.pointerType==='pen'){touchWasOpen?hideTip():showTip();}else showTip();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')hideTip();});document.addEventListener('pointerdown',e=>{if(!$('tipAnchor').contains(e.target))hideTip();});
 let generateTipTimer;
-function showGenerateTip(){if(state.credits!==0)return;clearTimeout(generateTipTimer);$('generateTip').hidden=false;}
+function showGenerateTip(){if(state.credits!==0)return;clearTimeout(generateTipTimer);$('generateTip').hidden=false;positionTip('generateTip','generateTipAnchor');}
 function hideGenerateTip(){clearTimeout(generateTipTimer);$('generateTip').hidden=true;}
 $('generateTipAnchor').addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')showGenerateTip();});
 $('generateTipAnchor').addEventListener('pointerleave',()=>{generateTipTimer=setTimeout(()=>{if(document.activeElement!==$('generateTipAnchor'))hideGenerateTip();},120);});
