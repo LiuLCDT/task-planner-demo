@@ -8,7 +8,7 @@ function renderMetrics(){for(const key of ['calls','successes','failures','block
 function notify(title,text,kind='info',retry=false){$('feedback').hidden=false;$('feedback').className=`feedback ${kind}`;$('feedbackTitle').textContent=title;$('feedbackText').textContent=text;$('retry').hidden=!retry;$('empty').hidden=true;}
 function renderTasks(){ $('taskCount').textContent=`${state.tasks.length} 项`;$('taskList').innerHTML=state.tasks.length?state.tasks.map((t,i)=>`<li class="task-item"><input class="task-check-placeholder" type="checkbox" disabled aria-label="标记${escapeHTML(t)}完成"><span class="task-name">${escapeHTML(t)}</span><span class="task-duration-placeholder"><input type="number" value="1" min="0.5" step="0.5" readonly aria-label="${escapeHTML(t)}预计时长"><span>小时</span></span><button class="delete" data-delete="${i}" aria-label="删除${escapeHTML(t)}" ${state.busy?'disabled':''}>×</button></li>`).join(''):'<li class="no-tasks">先添加一项待办</li>'; }
 let toastTimer;
-function showToast(text){clearTimeout(toastTimer);$('toastText').textContent=text;$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,3000);}
+function showToast(text,kind='success'){clearTimeout(toastTimer);$('toast').className=`toast ${kind}`;$('toastText').textContent=text;document.querySelector('.toast-icon').textContent=kind==='info'?'i':'✓';$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,kind==='info'?5000:3000);}
 function render(){
  $('credits').textContent=state.credits;document.querySelector('.quota').classList.toggle('exhausted',state.credits===0);
  $('generate').disabled=state.busy||state.credits===0||state.tasks.length===0;
@@ -29,7 +29,7 @@ function renderResult(){if(!state.result)return;const r=state.result;const minut
  $('result').innerHTML=`<p class="result-summary">${r.tasks.length} 项待办 · 共 ${r.hours} 小时</p>`+r.tasks.map((task,i)=>`<article class="plan-card"><div class="plan-title">${escapeHTML(task)}<span>中优先级</span></div><ul class="steps">${['准备','执行','复盘'].map((step,j)=>{const duration=base+(stepIndex++<remainder?1:0);return `<li><input type="checkbox" id="step-${i}-${j}"><label for="step-${i}-${j}">${step}：${escapeHTML(task)}</label><span>${duration} 分钟</span></li>`;}).join('')}</ul></article>`).join('');
 }
 async function generate(source='当前页'){
- if(state.externalLocked){state.blocks++;log(`${source} · blocked_in_progress · 未调用 / 未扣费`);clearTimeout(toastTimer);$('toast').hidden=true;notify('另一页面正在生成日程','本次未扣费，请等待另一页面完成后再试。','blocked');if(state.result)$('resultTag').textContent='上次成功结果';render();$('feedback').scrollIntoView({block:'nearest',behavior:'instant'});return 'blocked_in_progress';}
+ if(state.externalLocked){state.blocks++;log(`${source} · blocked_in_progress · 未调用 / 未扣费`);showToast('此账号正在另一页面生成日程，请稍后再试。本次未扣费。','info');return 'blocked_in_progress';}
  if(state.busy){state.blocks++;log(`${source} · blocked_in_progress · 未调用 / 未扣费`);return 'blocked_in_progress';}
  if(state.credits<1){state.requests.push({source,status:'no_credit'});state.blocks++;log(`${source} · blocked_no_credit · 未调用 / 未扣费`);render();showGenerateTip();return 'blocked_no_credit';}
  const hours=Number($('hours').value);
